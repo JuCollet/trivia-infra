@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trivia-server
+  labels:
+    app: trivia-server
+spec:
+  # Running games live in memory: never more than one instance, even during a rollout
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: trivia-server
+  template:
+    metadata:
+      labels:
+        app: trivia-server
+    spec:
+      terminationGracePeriodSeconds: 30 # server.shutdown=graceful
+      containers:
+        - name: trivia-server
+          image: ghcr.io/jucollet/trivia-server
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            # ANTHROPIC_API_KEY, created by scripts/set-secrets.sh. Optional: without it, the fallback questions are used.
+            - secretRef:
+                name: trivia-server
+                optional: true
+          # Spring Boot enables these probes by itself when it detects Kubernetes
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false

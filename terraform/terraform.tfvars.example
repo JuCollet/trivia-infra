@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars (ignored by Git) and fill in.
+
+oci_region       = "eu-paris-1"
+compartment_ocid = "ocid1.tenancy.oc1..xxxxx"
+ssh_allowed_cidr = "203.0.113.42/32" # curl -s https://ifconfig.me
+
+domain = "example.com"

@@ -1,0 +1,10 @@
+# Terraform: providers, state (contains the tunnel token) and personal values
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+crash.log
+
+.DS_Store
+.idea/

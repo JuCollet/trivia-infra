@@ -1,0 +1,76 @@
+#cloud-config
+# First boot of the VM. Afterwards, everything in the cluster comes from Git through Argo CD.
+
+package_update: true
+package_upgrade: true
+
+write_files:
+  - path: /etc/rancher/k3s/config.yaml
+    content: |
+      # No ingress controller nor load balancer: traffic arrives through cloudflared, inside the cluster
+      disable:
+        - traefik
+        - servicelb
+      write-kubeconfig-mode: "0600"
+
+  # k3s applies every manifest of this folder, and its Helm controller installs the HelmChart resources.
+  - path: /var/lib/rancher/k3s/server/manifests/argo-cd.yaml
+    content: |
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+        name: argo-cd
+        namespace: kube-system
+      spec:
+        repo: https://argoproj.github.io/argo-helm
+        chart: argo-cd
+        version: "${argocd_chart_version}"
+        targetNamespace: argocd
+        createNamespace: true
+        valuesContent: |-
+          dex:
+            enabled: false
+          notifications:
+            enabled: false
+          configs:
+            params:
+              # The UI is only reached through kubectl port-forward
+              server.insecure: true
+
+  # The root application, which points to argocd/apps in this repo (the "app of apps" pattern).
+  # Its Helm job fails until the Argo CD CRDs exist, then succeeds on a retry.
+  - path: /var/lib/rancher/k3s/server/manifests/argocd-root.yaml
+    content: |
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+        name: argocd-root
+        namespace: kube-system
+      spec:
+        repo: https://argoproj.github.io/argo-helm
+        chart: argocd-apps
+        version: "${argocd_apps_chart_version}"
+        targetNamespace: argocd
+        valuesContent: |-
+          applications:
+            root:
+              namespace: argocd
+              project: default
+              source:
+                repoURL: ${gitops_repo_url}
+                targetRevision: ${gitops_revision}
+                path: argocd/apps
+              destination:
+                server: https://kubernetes.default.svc
+                namespace: argocd
+              syncPolicy:
+                automated:
+                  prune: true
+                  selfHeal: true
+
+runcmd:
+  # Oracle's Ubuntu images reject forwarded traffic in iptables, which breaks pod networking.
+  # The VCN security list remains the firewall.
+  - sed -i '/-j REJECT --reject-with icmp-host-prohibited/d' /etc/iptables/rules.v4
+  - netfilter-persistent reload
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${k3s_version}" sh -
