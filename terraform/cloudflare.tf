@@ -74,6 +74,15 @@ resource "cloudflare_dns_record" "client" {
   ttl     = 1
 }
 
+# --- Pages: the browser version of the TV screen, deployed by the CI of trivia-tv ---
+
+# No domain of its own: trivia-client relays https://<client_hostname>/tv/* to it (functions/tv in trivia-client).
+resource "cloudflare_pages_project" "tv" {
+  account_id        = local.account_id
+  name              = "trivia-tv"
+  production_branch = var.pages_production_branch
+}
+
 # --- Rate limiting: stops a script hammering the API before it reaches the server ---
 
 # The Free plan allows one rule, matching on the path only, counted per IP over 10 seconds, blocking for 10 seconds.
