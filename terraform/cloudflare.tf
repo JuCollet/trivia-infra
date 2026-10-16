@@ -73,3 +73,30 @@ resource "cloudflare_dns_record" "client" {
   proxied = true
   ttl     = 1
 }
+
+# --- Rate limiting: stops a script hammering the API before it reaches the server ---
+
+# The Free plan allows one rule, matching on the path only, counted per IP over 10 seconds, blocking for 10 seconds.
+# It covers every /games request of the zone (the client on Pages has no such path). A whole party can share one
+# public IP behind the home router, so the limit leaves room for ten players joining and submitting their themes at
+# once. The server caps its paid Claude calls anyway (trivia.claude.max-calls-per-*): this rule is the first filter.
+resource "cloudflare_ruleset" "rate_limit" {
+  zone_id     = data.cloudflare_zone.main.id
+  name        = "Rate limiting"
+  description = "Limits the requests to the game API per IP"
+  kind        = "zone"
+  phase       = "http_ratelimit"
+
+  rules = [{
+    ref         = "games_api_per_ip"
+    description = "Game API: ${var.api_rate_limit} requests per 10 s per IP"
+    expression  = "(starts_with(http.request.uri.path, \"/games\"))"
+    action      = "block"
+    ratelimit = {
+      characteristics     = ["cf.colo.id", "ip.src"]
+      period              = 10
+      requests_per_period = var.api_rate_limit
+      mitigation_timeout  = 10
+    }
+  }]
+}

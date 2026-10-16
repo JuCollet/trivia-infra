@@ -47,7 +47,7 @@ docs/
 - **Oracle Cloud** : dans la console, *Profil → Clés d'API → Ajouter une clé d'API*, puis copier le bloc de configuration proposé dans `~/.oci/config` (avec le chemin de la clé privée téléchargée). L'OCID de la tenancy sert de `compartment_ocid`.
 - **Cloudflare** : un token d'API (*My Profile → API Tokens → Create Token → Custom*) avec les permissions :
   - *Account* : `Cloudflare Tunnel: Edit`, `Cloudflare Pages: Edit` ;
-  - *Zone* (ta zone) : `DNS: Edit`, `Zone: Read`.
+  - *Zone* (ta zone) : `DNS: Edit`, `Zone: Read`, `Zone WAF: Edit` (règle de rate limiting).
 - **GitHub** : ce repo poussé sur `github.com/JuCollet/trivia-infra`, **public** (il ne contient aucun secret ; privé, Argo CD aurait besoin d'une clé de déploiement).
 - Une clé SSH (`~/.ssh/id_ed25519.pub` par défaut).
 
