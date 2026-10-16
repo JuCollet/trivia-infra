@@ -107,3 +107,9 @@ variable "argocd_apps_chart_version" {
   type    = string
   default = "2.0.6"
 }
+
+variable "api_rate_limit" {
+  description = "Requests to /games allowed per IP every 10 seconds, beyond which Cloudflare blocks for 10 seconds."
+  type        = number
+  default     = 30
+}
