@@ -6,6 +6,7 @@ Infrastructure de **Chacun son truc** : la VM Oracle Cloud (free tier), le clust
 
 ```
 Téléphones ──HTTPS──▶ <domaine>            Cloudflare Pages (trivia-client, statique)
+Navigateur ──HTTPS──▶ <domaine>/tv         relayé vers Cloudflare Pages (trivia-tv, version web de l'écran)
 Téléphones ─┐
 App TV ─────┴─HTTPS/WSS─▶ api.<domaine> ─▶ Tunnel Cloudflare
                                                │ connexion sortante, aucun port ouvert

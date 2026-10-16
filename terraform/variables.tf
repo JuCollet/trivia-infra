@@ -74,7 +74,7 @@ variable "pages_project_name" {
 }
 
 variable "pages_production_branch" {
-  description = "Branch of trivia-client whose deployments go to production."
+  description = "Branch of trivia-client and trivia-tv whose deployments go to production."
   type        = string
   default     = "master"
 }

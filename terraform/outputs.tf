@@ -15,6 +15,11 @@ output "client_url" {
   value = "https://${local.client_hostname}"
 }
 
+output "tv_pages_url" {
+  description = "Where trivia-client relays /tv. If it is not https://trivia-tv.pages.dev, update functions/tv in trivia-client."
+  value       = "https://${cloudflare_pages_project.tv.subdomain}"
+}
+
 output "tunnel_token" {
   value     = data.cloudflare_zero_trust_tunnel_cloudflared_token.trivia.token
   sensitive = true

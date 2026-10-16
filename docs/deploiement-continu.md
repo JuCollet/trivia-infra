@@ -7,6 +7,7 @@ Ce repo décrit *ce qui tourne*. Ce sont les CI des repos applicatifs qui produi
 | trivia-server | une image `linux/arm64` | `ghcr.io/jucollet/trivia-server:<commit>` | la CI met à jour `apps/trivia-server/kustomization.yaml` ici, Argo CD suit |
 | trivia-client | un site statique (`dist/`) | Cloudflare Pages, projet `trivia-client` | la CI elle-même (`wrangler pages deploy`) |
 | trivia-tv | un APK Android TV | installé à la main sur le projecteur | personne : l'URL du serveur est figée au build |
+| trivia-tv (web) | un site statique (`dist/`) | Cloudflare Pages, projet `trivia-tv`, servi sous `/tv` du client | la CI elle-même (`wrangler pages deploy`) |
 
 Ce document décrit les jobs à ajouter dans les deux premiers repos et les secrets dont ils ont besoin.
 
