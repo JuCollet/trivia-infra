@@ -2,10 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: trivia
 resources:
-  - deployment.yaml
-  - service.yaml
-images:
+- deployment.yaml
+- service.yaml
   # The CI of trivia-server replaces newTag with the commit it just built (kustomize edit set image),
   # and Argo CD rolls the new version out.
-  - name: ghcr.io/jucollet/trivia-server
-    newTag: latest
+images:
+- name: ghcr.io/jucollet/trivia-server
+  newTag: 23943b0dec44850958adf16c13931a556894cb0d
