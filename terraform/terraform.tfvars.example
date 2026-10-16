@@ -1,7 +1,11 @@
 # Copy to terraform.tfvars (ignored by Git) and fill in.
 
-oci_region       = "eu-paris-1"
+oci_region       = "eu-frankfurt-1" # home region of the tenancy
 compartment_ocid = "ocid1.tenancy.oc1..xxxxx"
 ssh_allowed_cidr = "203.0.113.42/32" # curl -s https://ifconfig.me
 
-domain = "example.com"
+domain = "julco.dev"
+# julco.dev is a personal domain: the game gets subdomains instead of the apex.
+# One level only, so that Cloudflare's free certificate (*.julco.dev) covers them.
+client_hostname = "trivia.julco.dev"
+api_subdomain   = "trivia-api"
