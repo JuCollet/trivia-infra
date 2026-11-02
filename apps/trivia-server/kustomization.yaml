@@ -8,4 +8,4 @@ resources:
   # and Argo CD rolls the new version out.
 images:
 - name: ghcr.io/jucollet/trivia-server
-  newTag: 7e49f0d8d8664b78b0b21571b1396289201167bd
+  newTag: 57030463451516a997cd6328689adcd02603e777
