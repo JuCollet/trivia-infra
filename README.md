@@ -1,113 +1,113 @@
 # trivia-infra
 
-Infrastructure de **Chacun son truc** : la VM Oracle Cloud (free tier), le cluster k3s, Argo CD et le tunnel Cloudflare qui publie `trivia-server`.
+Infrastructure of **Chacun son truc**: the Oracle Cloud VM (free tier), the k3s cluster, Argo CD and the Cloudflare tunnel that publishes `trivia-server`.
 
-## Vue d'ensemble
+## Overview
 
 ```
-Téléphones ──HTTPS──▶ <domaine>            Cloudflare Pages (trivia-client, statique)
-Navigateur ──HTTPS──▶ <domaine>/tv         relayé vers Cloudflare Pages (trivia-tv, version web de l'écran)
-Téléphones ─┐
-App TV ─────┴─HTTPS/WSS─▶ api.<domaine> ─▶ Tunnel Cloudflare
-                                               │ connexion sortante, aucun port ouvert
+Phones ─────HTTPS──▶ <domain>              Cloudflare Pages (trivia-client, static)
+Browser ────HTTPS──▶ <domain>/tv           relayed to Cloudflare Pages (trivia-tv, web version of the screen)
+Phones ─────┐
+TV app ─────┴─HTTPS/WSS─▶ api.<domain> ──▶ Cloudflare Tunnel
+                                               │ outbound connection, no open port
                                                ▼
-                         ┌──────── VM Oracle Ampere A1 (arm64, free tier) ────────┐
+                         ┌──────── Oracle Ampere A1 VM (arm64, free tier) ────────┐
                          │  k3s                                                   │
-                         │   ├─ cloudflared ──▶ trivia-server (1 replica) ──▶ API Claude
-                         │   └─ Argo CD ◀── surveille ce repo (GitOps)            │
+                         │   ├─ cloudflared ──▶ trivia-server (1 replica) ──▶ Claude API
+                         │   └─ Argo CD ◀── watches this repo (GitOps)            │
                          └────────────────────────────────────────────────────────┘
 ```
 
-Deux outils, deux rôles :
+Two tools, two roles:
 
-- **Terraform** (`terraform/`) crée ce qui est *autour* du cluster : réseau et VM chez Oracle, tunnel, DNS et projet Pages chez Cloudflare. On le lance à la main, rarement.
-- **Argo CD** gère ce qui est *dans* le cluster : il applique en continu le contenu de `apps/`. Pour déployer, on modifie Git, pas le cluster.
+- **Terraform** (`terraform/`) creates what is *around* the cluster: network and VM at Oracle, tunnel, DNS and Pages project at Cloudflare. It is run by hand, rarely.
+- **Argo CD** manages what is *inside* the cluster: it continuously applies the content of `apps/`. To deploy, you change Git, not the cluster.
 
-Le passage de l'un à l'autre se fait au premier démarrage de la VM : cloud-init installe k3s, qui installe Argo CD, qui lit `argocd/apps/` et déploie le reste. Aucune commande `kubectl apply` à lancer.
+The handover from one to the other happens at the first boot of the VM: cloud-init installs k3s, which installs Argo CD, which reads `argocd/apps/` and deploys the rest. No `kubectl apply` to run.
 
-## Structure
+## Layout
 
 ```
-terraform/            VM, réseau, tunnel, DNS, Pages
-  cloud-init.yaml.tftpl  premier démarrage : k3s + Argo CD + application racine
-argocd/apps/          une Application Argo CD par composant (« app of apps »)
+terraform/            VM, network, tunnel, DNS, Pages
+  cloud-init.yaml.tftpl  first boot: k3s + Argo CD + root application
+argocd/apps/          one Argo CD Application per component ("app of apps")
 apps/
-  trivia-server/      Deployment + Service, version de l'image dans kustomization.yaml
-  cloudflared/        connecteur du tunnel
+  trivia-server/      Deployment + Service, image version in kustomization.yaml
+  cloudflared/        tunnel connector
 scripts/
-  set-secrets.sh      crée les secrets dans le cluster (jamais dans Git)
-  kubeconfig.sh       accès kubectl depuis ton Mac, par tunnel SSH
+  set-secrets.sh      creates the secrets in the cluster (never in Git)
+  kubeconfig.sh       kubectl access from your Mac, through an SSH tunnel
 docs/
-  deploiement-continu.md  ce qu'il faut ajouter aux CI de trivia-server et trivia-client
+  continuous-deployment.md  what to add to the CI of trivia-server and trivia-client
 ```
 
-## Premier déploiement
+## First deployment
 
-### 1. Prérequis
+### 1. Prerequisites
 
-- **Oracle Cloud** : dans la console, *Profil → Clés d'API → Ajouter une clé d'API*, puis copier le bloc de configuration proposé dans `~/.oci/config` (avec le chemin de la clé privée téléchargée). L'OCID de la tenancy sert de `compartment_ocid`.
-- **Cloudflare** : un token d'API (*My Profile → API Tokens → Create Token → Custom*) avec les permissions :
-  - *Account* : `Cloudflare Tunnel: Edit`, `Cloudflare Pages: Edit` ;
-  - *Zone* (ta zone) : `DNS: Edit`, `Zone: Read`, `Zone WAF: Edit` (règle de rate limiting).
-- **GitHub** : ce repo poussé sur `github.com/JuCollet/trivia-infra`, **public** (il ne contient aucun secret ; privé, Argo CD aurait besoin d'une clé de déploiement).
-- Une clé SSH (`~/.ssh/id_ed25519.pub` par défaut).
+- **Oracle Cloud**: in the console, *Profile → API keys → Add API key*, then copy the suggested configuration block into `~/.oci/config` (with the path of the downloaded private key). The tenancy OCID is used as `compartment_ocid`.
+- **Cloudflare**: an API token (*My Profile → API Tokens → Create Token → Custom*) with the permissions:
+  - *Account*: `Cloudflare Tunnel: Edit`, `Cloudflare Pages: Edit`;
+  - *Zone* (your zone): `DNS: Edit`, `Zone: Read`, `Zone WAF: Edit` (rate limiting rule).
+- **GitHub**: this repo pushed to `github.com/JuCollet/trivia-infra`, **public** (it holds no secret; if private, Argo CD would need a deploy key).
+- An SSH key (`~/.ssh/id_ed25519.pub` by default).
 
-### 2. Créer l'infrastructure
+### 2. Create the infrastructure
 
 ```bash
 cd terraform
-cp terraform.tfvars.example terraform.tfvars   # puis remplir
+cp terraform.tfvars.example terraform.tfvars   # then fill in
 export CLOUDFLARE_API_TOKEN=...
 terraform init
 terraform plan
 terraform apply
 ```
 
-L'erreur `Out of host capacity` est fréquente sur les instances A1 gratuites : réessayer plus tard, ou changer `availability_domain_index`.
+The `Out of host capacity` error is common on free A1 instances: try again later, or change `availability_domain_index`.
 
-### 3. Attendre l'installation (5 à 10 minutes)
+### 3. Wait for the installation (5 to 10 minutes)
 
 ```bash
 ssh ubuntu@$(terraform output -raw public_ip) 'cloud-init status --wait && sudo k3s kubectl get applications -n argocd'
 ```
 
-`trivia-server` et `cloudflared` apparaissent, en erreur tant que les secrets et l'image n'existent pas.
+`trivia-server` and `cloudflared` show up, in error until the secrets and the image exist.
 
-### 4. Créer les secrets
+### 4. Create the secrets
 
 ```bash
 ../scripts/set-secrets.sh
 ```
 
-Le token du tunnel vient de l'état Terraform, la clé Anthropic est demandée (ou lue dans `ANTHROPIC_API_KEY`).
+The tunnel token comes from the Terraform state, the Anthropic key is prompted for (or read from `ANTHROPIC_API_KEY`).
 
-### 5. Publier l'image du serveur
+### 5. Publish the server image
 
-Tant que la CI de `trivia-server` ne publie pas `ghcr.io/jucollet/trivia-server`, le pod reste en `ImagePullBackOff` : voir [docs/deploiement-continu.md](docs/deploiement-continu.md). Le paquet GHCR doit être public, ou il faudra un `imagePullSecret`.
+Until the CI of `trivia-server` publishes `ghcr.io/jucollet/trivia-server`, the pod stays in `ImagePullBackOff`: see [docs/continuous-deployment.md](docs/continuous-deployment.md). The GHCR package must be public, otherwise an `imagePullSecret` is needed.
 
-Vérification : `curl https://api.<domaine>/actuator/health`.
+Check: `curl https://api.<domain>/actuator/health`.
 
-## Au quotidien
+## Day to day
 
-| Je veux… | Je fais… |
+| I want to… | I do… |
 |---|---|
-| Déployer une nouvelle version du serveur | Rien : la CI de trivia-server met à jour `apps/trivia-server/kustomization.yaml`, Argo CD suit |
-| Changer la config d'un composant | Modifier `apps/…`, commit, push |
-| Voir l'état du cluster | `scripts/kubeconfig.sh`, puis `kubectl` ou `k9s` |
-| Ouvrir l'UI Argo CD | Tunnel ouvert : `kubectl -n argocd port-forward svc/argo-cd-server 8081:80`, puis http://localhost:8081 (utilisateur `admin`, mot de passe : `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d`) |
-| Changer la clé Anthropic | `scripts/set-secrets.sh` |
-| Repartir d'une VM neuve | `terraform apply -replace=oci_core_instance.k3s`, puis `scripts/set-secrets.sh` |
+| Deploy a new server version | Nothing: the CI of trivia-server updates `apps/trivia-server/kustomization.yaml`, Argo CD follows |
+| Change the config of a component | Edit `apps/…`, commit, push |
+| See the state of the cluster | `scripts/kubeconfig.sh`, then `kubectl` or `k9s` |
+| Open the Argo CD UI | With the tunnel open: `kubectl -n argocd port-forward svc/argo-cd-server 8081:80`, then http://localhost:8081 (user `admin`, password: `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' \| base64 -d`) |
+| Change the Anthropic key | `scripts/set-secrets.sh` |
+| Start over from a fresh VM | `terraform apply -replace=oci_core_instance.k3s`, then `scripts/set-secrets.sh` |
 
-## Limites du free tier
+## Free tier limits
 
-- **Récupération des instances inactives** : Oracle peut arrêter une instance Always Free qui reste sous 20 % de CPU pendant 7 jours. Passer le compte en *Pay As You Go* (sans dépasser le gratuit, rien n'est facturé) supprime cette règle.
-- Les ressources Always Free n'existent que dans la **région d'origine** de la tenancy.
-- Une seule VM : un redémarrage coupe les parties en cours, comme prévu dans l'architecture du serveur.
+- **Idle instance reclamation**: Oracle can stop an Always Free instance that stays under 20% CPU for 7 days. Upgrading the account to *Pay As You Go* (nothing is billed as long as you stay within the free tier) removes this rule.
+- Always Free resources only exist in the tenancy's **home region**.
+- A single VM: a reboot cuts the running games, as planned in the server architecture.
 
-## Plus tard
+## Later
 
-- État Terraform dans un bucket Object Storage (backend `oci`) plutôt qu'en local.
-- Secrets dans Git, chiffrés (Sealed Secrets ou SOPS), à la place de `set-secrets.sh`.
-- Argo CD qui se gère lui-même (son Helm chart comme Application).
-- Restreindre `trivia.game.allowed-origin-patterns` à l'origine du client web, après avoir vérifié ce qu'envoie l'app TV.
-- PostgreSQL quand le serveur en aura besoin.
+- Terraform state in an Object Storage bucket (`oci` backend) instead of locally.
+- Secrets in Git, encrypted (Sealed Secrets or SOPS), instead of `set-secrets.sh`.
+- Argo CD managing itself (its Helm chart as an Application).
+- Restrict `trivia.game.allowed-origin-patterns` to the web client's origin, after checking what the TV app sends.
+- PostgreSQL when the server needs it.
